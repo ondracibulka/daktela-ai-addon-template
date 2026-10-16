@@ -52,6 +52,7 @@ These are held back on purpose. Bumping them breaks the build, so check here bef
 | `@mui/x-data-grid` | `^8` | Same package, `^7 \|\| ^8`. The theme imports its `themeAugmentation` at runtime. |
 | `vite` | `^7` | `@originjs/vite-plugin-federation` (last released for Vite 4, and the only plugin the host's loader can consume) breaks on Vite 8: it stops substituting its `__v__css__` placeholder, the bundle ships the literal token, and the configuration page dies at mount with `e.forEach is not a function`. The build says nothing. |
 | `@vitejs/plugin-react` | `^5` | Version 6 imports `vite/internal` and needs Vite 8. |
+| Python | `3.14` (`.python-version`) | Without a pin `uv` picks the newest CPython. `psycopg-binary` 3.3.5 ships wheels only up to `cp314`, so on 3.15 `uv sync` fails with "doesn't have a source distribution or wheel for the current platform". |
 | `typescript` | `6.0.x` | `typescript-eslint` supports `>=4.8.4 <6.1.0`. On TypeScript 7 it refuses to run and `pnpm lint` fails outright. |
 
 The MUI cap lifts when the theme widens its peer range; the TypeScript one when typescript-eslint
