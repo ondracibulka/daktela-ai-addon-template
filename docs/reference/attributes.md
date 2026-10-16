@@ -126,6 +126,7 @@ Dropdown with a fixed set of options known at build time.
 |---|---|---|
 | `options` | `list[dict[str, str]]` | Single-entry `{value: label}` maps, in the order shown. |
 | `default_value` | `str \| None` | **Must be one of the option values** — the model raises at import otherwise, so your addon fails to start. |
+| `unique_in_list` | `bool` | Only inside a `ListAttribute`: each option may be picked in at most one row. Default `False`. |
 
 ```python
 SelectAttribute(
@@ -174,6 +175,29 @@ ListAttribute(
 ```
 
 Your attributes model receives a list of dicts keyed by the nested names.
+
+To let each option of a nested select appear in **one row only**, set `unique_in_list=True` on it.
+The builder then does not offer an option another row already picked, and disables the add button
+once every option is taken. It is a builder rule, not a validation: a flow saved before you set it,
+or by an older builder, can still send a repeated value, so decide in `execute()` which row wins.
+
+```python
+ListAttribute(
+    name="context_values",
+    title=LangString(en="Context values", cs="Kontextové hodnoty"),
+    attributes=[
+        SelectAttribute(
+            name="key",
+            title=LangString(en="Variable", cs="Proměnná"),
+            options=[{"order_id": "Order ID"}, {"customer_id": "Customer ID"}],
+            unique_in_list=True,
+        ),
+        StringAttribute(name="value", title=LangString(en="Value", cs="Hodnota")),
+    ],
+)
+```
+
+Worked example: `server/modules/catalog/interaction_event.py`.
 
 ### `DynamicListAttribute`
 
@@ -270,6 +294,7 @@ it in their pickers.
 |---|---|
 | Attribute `name` differs from the pydantic field | The value silently arrives empty |
 | `SelectAttribute.default_value` is not one of the options | The model raises at import — your addon does not start |
+| Relying on `unique_in_list` for correctness | Only the builder enforces it; your module can still receive a repeated value |
 | A `DynamicListAttribute` whose name matches no `DynamicList` | An empty select, no error |
 | Renaming an attribute after the module is in use | Existing flows lose that value |
 | Adding a required attribute with no `default_value` | Existing flows break |

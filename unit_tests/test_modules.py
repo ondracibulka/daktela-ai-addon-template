@@ -76,6 +76,36 @@ async def test_interaction_event_also_sets_context_and_store() -> None:
     assert _actions_of(response, "store")[0].store == {"example_addon_last_run": 0}
 
 
+async def test_interaction_event_sets_the_listed_context_values() -> None:
+    module = InteractionEventModule(
+        attributes=InteractionEventAttributes.model_validate(
+            {
+                "event_message": "hello",
+                "severity": "info",
+                "context_values": [
+                    {"key": "order_id", "value": "48271"},
+                    {"key": "customer_id", "value": ""},  # not filled in: skipped
+                ],
+            }
+        ),
+        discussion=DiscussionBuilder().build(),
+        tenant=dummy_tenant,
+    )
+
+    response = await module.execute()
+
+    contexts = {context.name: context.value for context in _actions_of(response, "context")[0].contexts}
+    assert contexts == {"last_event_message": "hello", "order_id": "48271"}
+
+
+def test_interaction_event_keeps_each_context_variable_to_one_row() -> None:
+    manifest = InteractionEventModule.to_manifest().model_dump(mode="json")
+
+    context_values = next(attr for attr in manifest["attributes"] if attr["name"] == "context_values")
+    key = next(attr for attr in context_values["attributes"] if attr["name"] == "key")
+    assert key["unique_in_list"] is True
+
+
 async def test_exchange_rate_converts(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_get(self, url, params=None, **kwargs):
         return httpx.Response(200, json={"rates": {"CZK": 25.0}}, request=httpx.Request("GET", url))

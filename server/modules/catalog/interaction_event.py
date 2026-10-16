@@ -2,7 +2,9 @@
 
 Demonstrates : `ModuleExecutor`, and the difference between the four ways a
                module can leave something behind: a chat message, a context
-               variable, a store value, and a diagnostic *event*.
+               variable, a store value, and a diagnostic *event*. Also a
+               `ListAttribute` whose select allows each option once
+               (`unique_in_list`).
 Documented in: docs/06-events-in-interactions.md
 Change first : the `debug_type` and the messages in `execute()`.
 
@@ -20,6 +22,7 @@ from cw_addons.modules.executor import ModuleExecutor
 from cw_addons.modules.models import (
     DebugInfoType,
     LangString,
+    ListAttribute,
     ModuleResponses,
     OutputContext,
     OutputPortStatic,
@@ -30,16 +33,22 @@ from cw_addons.modules.module import Module
 from pydantic import BaseModel
 
 
+class ContextValue(BaseModel):
+    key: str | None = None
+    value: str | None = None
+
+
 class InteractionEventAttributes(BaseModel):
     event_message: str
     severity: str
+    context_values: list[ContextValue] = []
 
 
 class InteractionEventModule(Module[InteractionEventAttributes]):
     attributes: InteractionEventAttributes
 
     name = "interaction_event"
-    version = "v1"
+    version = "v2"
     public = True
 
     icon = "📝"
@@ -83,6 +92,26 @@ class InteractionEventModule(Module[InteractionEventAttributes]):
             default_value="info",
             required=True,
         ),
+        ListAttribute(
+            name="context_values",
+            title=LangString(en="Context values", cs="Kontextové hodnoty"),
+            description=LangString(
+                en="Extra context variables to set, one per row.",
+                cs="Další kontextové proměnné k nastavení, jedna na řádek.",
+            ),
+            attributes=[
+                SelectAttribute(
+                    name="key",
+                    title=LangString(en="Variable", cs="Proměnná"),
+                    description=LangString(en="Which variable to set.", cs="Kterou proměnnou nastavit."),
+                    options=[{"order_id": "Order ID"}, {"customer_id": "Customer ID"}],
+                    # Each variable can be picked in one row only: the builder hides
+                    # the ones other rows already use.
+                    unique_in_list=True,
+                ),
+                StringAttribute(name="value", title=LangString(en="Value", cs="Hodnota")),
+            ],
+        ),
     ]
 
     output_contexts = [
@@ -122,6 +151,11 @@ class InteractionEventModule(Module[InteractionEventAttributes]):
 
         # 2. A CONTEXT variable. Business data for later nodes in this flow.
         executor.add_context("last_event_message", self.attributes.event_message)
+        # unique_in_list is only a builder rule, so a flow saved before it can
+        # still repeat a key; the later row wins, as it would for the designer.
+        for row in self.attributes.context_values:
+            if row.key and row.value:
+                executor.add_context(row.key, row.value)
 
         # 3. A STORE value. Like context, but it survives across the whole
         #    conversation rather than being recomputed per flow run.
